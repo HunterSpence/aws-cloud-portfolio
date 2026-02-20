@@ -1,8 +1,6 @@
 <div align="center">
 
-# ☁️ CloudForge
-
-**Multi-Region AWS Infrastructure Framework**
+# 🏗️ CloudForge — Multi-Region Infrastructure Framework
 
 ![Terraform](https://img.shields.io/badge/Terraform-1.6+-7B42BC?logo=terraform&logoColor=white)
 ![AWS](https://img.shields.io/badge/AWS-Production_Ready-FF9900?logo=amazon-aws&logoColor=white)
@@ -10,7 +8,7 @@
 ![IaC](https://img.shields.io/badge/IaC-Best_Practices-blue)
 ![Multi-Region](https://img.shields.io/badge/Multi--Region-HA%2FDR-red)
 
-A production-grade, multi-region AWS infrastructure framework built with modular Terraform. Deploys a fully wired stack—VPC, ECS Fargate, Aurora PostgreSQL, CloudFront with WAF, and CloudWatch observability—across primary and disaster-recovery regions, following AWS Well-Architected principles for security, reliability, and cost optimization.
+A production-grade, multi-region AWS infrastructure framework built with modular Terraform that deploys a fully wired stack — VPC networking, ECS Fargate compute, Aurora PostgreSQL databases, CloudFront with WAF edge protection, and CloudWatch observability — across primary and disaster-recovery regions, following AWS Well-Architected principles for security, reliability, performance efficiency, and cost optimization.
 
 </div>
 
@@ -20,13 +18,11 @@ A production-grade, multi-region AWS infrastructure framework built with modular
 
 ```mermaid
 graph LR
-    Users([👤 Internet]):::external
+    Internet([👤 Internet]):::external
 
     subgraph Edge ["☁️ Edge Layer"]
         CF["CloudFront\nDistribution"]
         WAF["AWS WAF v2\nRate Limit · Geo · IP"]
-        R53["Route 53\nLatency Routing"]
-        ACM["ACM TLS\nCertificate"]
     end
 
     subgraph VPC ["🔒 VPC — 10.0.0.0/16"]
@@ -36,35 +32,25 @@ graph LR
         end
         subgraph Private ["Private Subnets (3 AZs)"]
             ECS["ECS Fargate\nCluster"]
-            AS["Auto Scaling\n2 → 10 tasks"]
-            ECR["ECR\nRegistry"]
         end
         subgraph DB ["Database Subnets (3 AZs)"]
             Aurora["Aurora\nPostgreSQL"]
-            Replica["Read\nReplica"]
         end
     end
 
     subgraph Observe ["📊 Observability"]
         CW["CloudWatch\nDashboards & Alarms"]
-        SNS["SNS\nAlerts"]
-        S3["S3\nLogs"]
+        S3["S3\nAccess Logs"]
     end
 
-    Users --> R53 --> CF
-    CF --> WAF --> ALB
+    Internet --> CF --> WAF --> ALB
     ALB --> ECS
-    ECS --> AS
+    NAT -.->|outbound| ECS
     ECS --> Aurora
-    Aurora --> Replica
     ECS --> CW
     ALB --> CW
     Aurora --> CW
-    CW --> SNS
     CW --> S3
-    NAT -.-> ECS
-    ECR -.-> ECS
-    ACM -.-> CF
 
     classDef external fill:#f9f,stroke:#333,stroke-width:2px
 ```
@@ -100,16 +86,16 @@ graph TB
 
 ## ✨ Features
 
-- ✅ **Multi-Region HA/DR** — Primary + disaster recovery with automated failover
-- ✅ **Zero-Downtime Deploys** — ECS Fargate with blue/green deployment support
+- ✅ **Multi-Region HA/DR** — Primary + disaster recovery with Route 53 automated failover
+- ✅ **Zero-Downtime Deploys** — ECS Fargate with rolling and blue/green deployment support
 - ✅ **Auto Scaling** — CPU/memory-based scaling from 2 to 10 tasks
 - ✅ **Aurora PostgreSQL** — Encrypted, multi-AZ with cross-region read replicas
-- ✅ **Edge Security** — CloudFront + WAF v2 with rate limiting, geo-blocking, IP rules
-- ✅ **Full Observability** — CloudWatch dashboards, metric alarms, SNS alerting, centralized logs
-- ✅ **Encryption Everywhere** — KMS keys with auto-rotation, TLS termination, encrypted storage
-- ✅ **Least-Privilege IAM** — Scoped roles for every service, no wildcards
-- ✅ **Remote State** — S3 + DynamoDB locking with versioning and encryption
-- ✅ **CI/CD Ready** — GitHub Actions pipeline: lint → plan → apply
+- ✅ **Edge Security** — CloudFront + WAF v2 with rate limiting, geo-blocking, IP allowlists
+- ✅ **Full Observability** — CloudWatch dashboards, metric alarms, SNS alerting, S3 centralized logs
+- ✅ **Encryption Everywhere** — KMS with auto-rotation, TLS termination, encrypted storage at rest
+- ✅ **Least-Privilege IAM** — Scoped roles per service, zero wildcard policies
+- ✅ **Remote State** — S3 backend + DynamoDB locking with versioning and encryption
+- ✅ **CI/CD Ready** — GitHub Actions pipeline: lint → plan → approve → apply
 
 ---
 
@@ -117,12 +103,12 @@ graph TB
 
 | Module | Description | Key Resources |
 |--------|-------------|---------------|
-| **`vpc`** | Multi-AZ networking foundation | VPC, public/private/database subnets, NAT Gateways, VPC Flow Logs, route tables |
-| **`ecs`** | Containerized compute layer | Fargate cluster, ALB, target groups, auto-scaling policies, ECR repository |
-| **`database`** | Managed relational database | Aurora PostgreSQL cluster, writer + reader instances, subnet groups, parameter groups |
-| **`cdn`** | Edge distribution & DNS | CloudFront distribution, WAF WebACL, Route 53 records, ACM certificates |
-| **`monitoring`** | Observability & alerting | CloudWatch dashboards, metric alarms, log groups, SNS topics |
-| **`security`** | Encryption & access control | KMS keys, security groups, SSM parameters, IAM roles |
+| **`modules/vpc`** | Multi-AZ networking foundation | VPC, public/private/database subnets, NAT Gateways, VPC Flow Logs |
+| **`modules/ecs`** | Containerized compute layer | Fargate cluster, ALB, target groups, auto-scaling, ECR repository |
+| **`modules/database`** | Managed relational database | Aurora PostgreSQL cluster, writer + reader instances, parameter groups |
+| **`modules/cdn`** | Edge distribution & DNS | CloudFront distribution, WAF WebACL, Route 53 records, ACM certs |
+| **`modules/monitoring`** | Observability & alerting | CloudWatch dashboards, metric alarms, log groups, SNS topics |
+| **`modules/security`** | Encryption & access control | KMS keys, security groups, SSM parameters, IAM roles |
 
 ```mermaid
 graph TD
@@ -156,22 +142,10 @@ cp terraform.tfvars.example terraform.tfvars
 # ✏️  Edit terraform.tfvars with your domain, regions, and preferences
 
 # Deploy
-terraform init          # Download providers & modules
-terraform plan -out=tfplan   # Preview changes
+terraform init               # Download providers & modules
+terraform plan -out=tfplan   # Preview all changes
 terraform apply tfplan       # Build everything
 ```
-
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `project_name` | Resource name prefix | `cloudforge` |
-| `environment` | Environment tag | `production` |
-| `primary_region` | Primary AWS region | `us-east-1` |
-| `dr_region` | DR region | `eu-west-1` |
-| `domain_name` | Route 53 domain | — |
-| `vpc_cidr` | VPC CIDR block | `10.0.0.0/16` |
-| `db_instance_class` | Aurora instance size | `db.r6g.large` |
-
-See [`variables.tf`](variables.tf) for the full list.
 
 ---
 
@@ -223,12 +197,12 @@ graph LR
 
 | Layer | Controls |
 |-------|----------|
-| **Edge** | WAF rate limiting, geo-blocking, IP allowlists, managed rule groups |
-| **Transport** | TLS 1.2+ everywhere, ACM auto-renewing certificates, HTTPS redirect |
-| **Network** | Private subnets for compute/DB, security groups with minimal ingress, VPC Flow Logs |
-| **Data** | KMS encryption at rest (auto-rotation), SSM SecureString for secrets |
-| **Identity** | IAM roles with least-privilege policies, no long-lived credentials |
-| **Audit** | CloudTrail, VPC Flow Logs, CloudWatch log retention |
+| **Edge** | WAF rate limiting, geo-blocking, IP allowlists, managed OWASP rule groups |
+| **Transport** | TLS 1.2+ everywhere, ACM auto-renewing certificates, HTTPS-only redirect |
+| **Network** | Private subnets for compute & DB, minimal-ingress security groups, VPC Flow Logs |
+| **Data** | KMS encryption at rest with auto-rotation, SSM SecureString for secrets |
+| **Identity** | Scoped IAM roles with least-privilege policies, no long-lived credentials |
+| **Audit** | CloudTrail, VPC Flow Logs, CloudWatch log retention, S3 access logs |
 
 ---
 
@@ -248,9 +222,9 @@ graph LR
 The included GitHub Actions workflow ([`ci-cd/github-actions.yml`](ci-cd/github-actions.yml)) runs on every push:
 
 1. **Lint** — `terraform fmt -check` and `terraform validate`
-2. **Plan** — Generates execution plan as a PR comment
-3. **Apply** — Requires manual approval, then applies to AWS
-4. **Notify** — Posts deployment status to SNS/Slack
+2. **Plan** — Generates execution plan, posts diff as PR comment
+3. **Apply** — Requires manual approval gate, then applies to AWS
+4. **Notify** — Posts deployment status to SNS / Slack
 
 ---
 
@@ -264,7 +238,7 @@ terraform destroy
 terraform destroy -auto-approve
 ```
 
-> ⚠️ **This deletes ALL infrastructure including databases.** Export backups before destroying.
+> ⚠️ **This deletes ALL infrastructure including databases.** Export snapshots and backups before destroying.
 
 ---
 
