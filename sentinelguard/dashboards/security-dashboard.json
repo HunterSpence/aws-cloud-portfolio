@@ -1,0 +1,102 @@
+{
+  "widgets": [
+    {
+      "type": "metric",
+      "x": 0,
+      "y": 0,
+      "width": 12,
+      "height": 6,
+      "properties": {
+        "title": "GuardDuty Findings by Severity",
+        "metrics": [
+          ["AWS/GuardDuty", "FindingsCount", "Severity", "High", { "stat": "Sum", "period": 86400 }],
+          ["AWS/GuardDuty", "FindingsCount", "Severity", "Medium", { "stat": "Sum", "period": 86400 }],
+          ["AWS/GuardDuty", "FindingsCount", "Severity", "Low", { "stat": "Sum", "period": 86400 }]
+        ],
+        "view": "timeSeries",
+        "region": "${aws_region}",
+        "period": 86400
+      }
+    },
+    {
+      "type": "metric",
+      "x": 12,
+      "y": 0,
+      "width": 12,
+      "height": 6,
+      "properties": {
+        "title": "Security Hub — Compliance Score",
+        "metrics": [
+          ["AWS/SecurityHub", "ComplianceScore", "StandardsArn", "cis-aws-foundations-benchmark", { "stat": "Average", "period": 86400 }],
+          ["AWS/SecurityHub", "ComplianceScore", "StandardsArn", "aws-foundational-security-best-practices", { "stat": "Average", "period": 86400 }]
+        ],
+        "view": "gauge",
+        "region": "${aws_region}",
+        "yAxis": { "left": { "min": 0, "max": 100 } }
+      }
+    },
+    {
+      "type": "metric",
+      "x": 0,
+      "y": 6,
+      "width": 12,
+      "height": 6,
+      "properties": {
+        "title": "Config Rule Compliance",
+        "metrics": [
+          ["AWS/Config", "ComplianceByConfigRule", "ConfigRuleName", "s3-bucket-public-read-prohibited", { "stat": "Average" }],
+          ["AWS/Config", "ComplianceByConfigRule", "ConfigRuleName", "encrypted-volumes", { "stat": "Average" }],
+          ["AWS/Config", "ComplianceByConfigRule", "ConfigRuleName", "root-account-mfa-enabled", { "stat": "Average" }],
+          ["AWS/Config", "ComplianceByConfigRule", "ConfigRuleName", "cloudtrail-enabled", { "stat": "Average" }],
+          ["AWS/Config", "ComplianceByConfigRule", "ConfigRuleName", "vpc-flow-logs-enabled", { "stat": "Average" }],
+          ["AWS/Config", "ComplianceByConfigRule", "ConfigRuleName", "restricted-ssh", { "stat": "Average" }]
+        ],
+        "view": "singleValue",
+        "region": "${aws_region}",
+        "period": 86400
+      }
+    },
+    {
+      "type": "metric",
+      "x": 12,
+      "y": 6,
+      "width": 12,
+      "height": 6,
+      "properties": {
+        "title": "IAM Access Analyzer — Active Findings",
+        "metrics": [
+          ["AWS/AccessAnalyzer", "ActiveFindings", "AnalyzerName", "sentinelguard-account-analyzer", { "stat": "Sum", "period": 86400 }]
+        ],
+        "view": "timeSeries",
+        "region": "${aws_region}",
+        "period": 86400
+      }
+    },
+    {
+      "type": "metric",
+      "x": 0,
+      "y": 12,
+      "width": 24,
+      "height": 6,
+      "properties": {
+        "title": "CloudTrail — API Call Volume",
+        "metrics": [
+          ["AWS/CloudTrail", "EventCount", { "stat": "Sum", "period": 3600 }]
+        ],
+        "view": "timeSeries",
+        "region": "${aws_region}",
+        "period": 3600
+      }
+    },
+    {
+      "type": "text",
+      "x": 0,
+      "y": 18,
+      "width": 24,
+      "height": 2,
+      "properties": {
+        "markdown": "## SentinelGuard Security Dashboard\n**Modules:** GuardDuty | Security Hub | AWS Config (16 CIS rules) | CloudTrail | IAM Access Analyzer\n\n*Automated compliance monitoring and threat detection for AWS environments.*"
+      }
+    }
+  ]
+}
