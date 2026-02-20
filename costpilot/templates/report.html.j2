@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CostPilot — AWS Cost Report</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:#0f0f0f;color:#e2e2e2;display:flex;min-height:100vh}
+  a{color:#6366f1;text-decoration:none}
+  a:hover{text-decoration:underline}
+
+  /* Sidebar */
+  .sidebar{width:240px;background:#161618;border-right:1px solid #252528;padding:24px 16px;position:fixed;top:0;left:0;height:100vh;overflow-y:auto}
+  .sidebar h2{font-size:18px;color:#fff;margin-bottom:24px;display:flex;align-items:center;gap:8px}
+  .sidebar h2 span{font-size:22px}
+  .sidebar nav a{display:block;padding:8px 12px;border-radius:6px;color:#a1a1aa;font-size:14px;margin-bottom:2px;transition:all .15s}
+  .sidebar nav a:hover,.sidebar nav a.active{background:#1e1e22;color:#6366f1;text-decoration:none}
+  .sidebar .meta{margin-top:auto;padding-top:24px;border-top:1px solid #252528;font-size:12px;color:#52525b}
+
+  /* Main */
+  .main{margin-left:240px;flex:1;padding:32px 40px;max-width:1100px}
+  h1{font-size:28px;color:#fff;margin-bottom:8px}
+  .subtitle{color:#71717a;font-size:14px;margin-bottom:32px}
+
+  /* Cards */
+  .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;margin-bottom:32px}
+  .card{background:#161618;border:1px solid #252528;border-radius:10px;padding:20px}
+  .card .label{font-size:12px;color:#71717a;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px}
+  .card .value{font-size:24px;font-weight:700;color:#fff}
+  .card .value.savings{color:#22c55e}
+  .card .value.warning{color:#f59e0b}
+
+  /* Section */
+  section{margin-bottom:40px}
+  section h2{font-size:20px;color:#fff;margin-bottom:16px;padding-bottom:8px;border-bottom:1px solid #252528}
+
+  /* Chart placeholder */
+  .chart-placeholder{background:#161618;border:1px dashed #333;border-radius:10px;height:260px;display:flex;align-items:center;justify-content:center;color:#52525b;font-size:14px;margin-bottom:24px}
+
+  /* Tables */
+  table{width:100%;border-collapse:collapse;font-size:14px}
+  thead th{text-align:left;padding:10px 12px;color:#71717a;font-size:12px;text-transform:uppercase;letter-spacing:.5px;border-bottom:1px solid #252528}
+  tbody td{padding:10px 12px;border-bottom:1px solid #1e1e22}
+  tbody tr:hover{background:#1a1a1e}
+  .mono{font-family:'Fira Code',monospace;font-size:13px}
+  .tag{display:inline-block;padding:2px 8px;border-radius:4px;font-size:12px;font-weight:500}
+  .tag-purple{background:rgba(99,102,241,.15);color:#818cf8}
+  .tag-green{background:rgba(34,197,94,.15);color:#22c55e}
+  .tag-yellow{background:rgba(245,158,11,.15);color:#f59e0b}
+  .tag-red{background:rgba(239,68,68,.15);color:#ef4444}
+
+  /* Footer */
+  .footer{margin-top:48px;padding-top:16px;border-top:1px solid #252528;font-size:12px;color:#52525b;text-align:center}
+</style>
+</head>
+<body>
+
+<aside class="sidebar">
+  <h2><span>💸</span> CostPilot</h2>
+  <nav>
+    <a href="#summary" class="active">Summary</a>
+    <a href="#services">Top Services</a>
+    <a href="#trends">Cost Trends</a>
+    <a href="#rightsizing">Rightsizing</a>
+    <a href="#unused">Unused Resources</a>
+    <a href="#regions">By Region</a>
+  </nav>
+  <div class="meta">
+    <p>Generated {{ generated_at }}</p>
+    <p>{{ costs.period.start }} → {{ costs.period.end }}</p>
+  </div>
+</aside>
+
+<div class="main">
+  <h1>AWS Cost Optimization Report</h1>
+  <p class="subtitle">{{ costs.period.start }} to {{ costs.period.end }} · {{ costs.period.days }}-day analysis</p>
+
+  <!-- Summary Cards -->
+  <section id="summary">
+    <div class="cards">
+      <div class="card">
+        <div class="label">Total Spend</div>
+        <div class="value">${{ "%.2f"|format(costs.total_spend) }}</div>
+      </div>
+      <div class="card">
+        <div class="label">Daily Average</div>
+        <div class="value">${{ "%.2f"|format(costs.avg_daily) }}</div>
+      </div>
+      <div class="card">
+        <div class="label">Projected Monthly</div>
+        <div class="value">${{ "%.2f"|format(costs.projected_monthly) }}</div>
+      </div>
+      <div class="card">
+        <div class="label">Cost Spikes</div>
+        <div class="value warning">{{ costs.cost_spikes|length }}</div>
+      </div>
+      <div class="card">
+        <div class="label">Potential Savings</div>
+        <div class="value savings">${{ "%.2f"|format(total_savings) }}/mo</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Top Services -->
+  <section id="services">
+    <h2>Top Services by Spend</h2>
+    <table>
+      <thead><tr><th>Service</th><th>Cost</th></tr></thead>
+      <tbody>
+      {% for svc in costs.top_services %}
+        <tr>
+          <td>{{ svc.service }}</td>
+          <td class="mono">${{ "%.2f"|format(svc.amount) }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </section>
+
+  <!-- Cost Trends Chart -->
+  <section id="trends">
+    <h2>Daily Cost Trend</h2>
+    <div class="chart-placeholder">📊 Chart placeholder — integrate Chart.js or embed image here</div>
+    {% if costs.cost_spikes %}
+    <h3 style="color:#f59e0b;font-size:14px;margin-bottom:8px">⚠ Cost Spikes Detected</h3>
+    <table>
+      <thead><tr><th>Date</th><th>Amount</th></tr></thead>
+      <tbody>
+      {% for spike in costs.cost_spikes %}
+        <tr>
+          <td>{{ spike.date }}</td>
+          <td class="mono" style="color:#f59e0b">${{ "%.2f"|format(spike.amount) }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    {% endif %}
+  </section>
+
+  <!-- Rightsizing -->
+  <section id="rightsizing">
+    <h2>EC2 Rightsizing Recommendations</h2>
+    <p style="color:#71717a;font-size:13px;margin-bottom:12px">
+      Analyzed {{ sizing.instances_analyzed }} instances · CPU threshold: {{ sizing.cpu_threshold }}%
+    </p>
+    {% if sizing.recommendations %}
+    <table>
+      <thead>
+        <tr>
+          <th>Instance</th><th>Name</th><th>Current</th><th>Recommended</th><th>Avg CPU</th><th>Savings/mo</th>
+        </tr>
+      </thead>
+      <tbody>
+      {% for r in sizing.recommendations %}
+        <tr>
+          <td class="mono">{{ r.instance_id }}</td>
+          <td>{{ r.name }}</td>
+          <td><span class="tag tag-red">{{ r.current_type }}</span></td>
+          <td><span class="tag tag-green">{{ r.recommended_type }}</span></td>
+          <td>{{ r.avg_cpu_percent }}%</td>
+          <td class="mono" style="color:#22c55e">${{ "%.2f"|format(r.monthly_savings) }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <p style="color:#52525b">✅ All instances are properly sized.</p>
+    {% endif %}
+  </section>
+
+  <!-- Unused Resources -->
+  <section id="unused">
+    <h2>Unused Resources</h2>
+    <p style="color:#71717a;font-size:13px;margin-bottom:12px">
+      Found {{ unused.total_unused }} unused resources · ${{ "%.2f"|format(unused.potential_savings) }}/mo wasted
+    </p>
+    {% for category, items in unused.resources.items() %}
+      {% if items %}
+      <h3 style="font-size:15px;color:#a1a1aa;margin:16px 0 8px">{{ category|replace('_', ' ')|title }}</h3>
+      <table>
+        <thead><tr><th>ID</th><th>Type</th><th>Cost/mo</th><th>Action</th></tr></thead>
+        <tbody>
+        {% for item in items[:10] %}
+          <tr>
+            <td class="mono">{{ item.id }}</td>
+            <td><span class="tag tag-purple">{{ item.type }}</span></td>
+            <td class="mono">${{ "%.2f"|format(item.monthly_cost) }}</td>
+            <td style="color:#71717a;font-size:13px">{{ item.action }}</td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+      {% endif %}
+    {% endfor %}
+  </section>
+
+  <!-- By Region -->
+  <section id="regions">
+    <h2>Spend by Region</h2>
+    <div class="chart-placeholder">🌍 Region breakdown chart placeholder</div>
+    <table>
+      <thead><tr><th>Region</th><th>Cost</th></tr></thead>
+      <tbody>
+      {% for r in costs.by_region %}
+        <tr>
+          <td>{{ r.region }}</td>
+          <td class="mono">${{ "%.2f"|format(r.amount) }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </section>
+
+  <div class="footer">
+    Generated by <strong>CostPilot</strong> — AWS Cloud Cost Optimization Engine · {{ generated_at }}
+  </div>
+</div>
+
+</body>
+</html>
