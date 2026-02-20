@@ -1,221 +1,173 @@
-# ☁️ CloudForge — Multi-Region Infrastructure Framework
+<div align="center">
 
-![Terraform](https://img.shields.io/badge/Terraform-≥1.6-7B42BC?logo=terraform&logoColor=white)
-![AWS](https://img.shields.io/badge/AWS-Multi--Region-FF9900?logo=amazonaws&logoColor=white)
+# ☁️ CloudForge
+
+**Multi-Region AWS Infrastructure Framework**
+
+![Terraform](https://img.shields.io/badge/Terraform-1.6+-7B42BC?logo=terraform&logoColor=white)
+![AWS](https://img.shields.io/badge/AWS-Production_Ready-FF9900?logo=amazon-aws&logoColor=white)
 ![License](https://img.shields.io/badge/License-MIT-green)
-![IaC](https://img.shields.io/badge/IaC-Production--Ready-blue)
+![IaC](https://img.shields.io/badge/IaC-Best_Practices-blue)
+![Multi-Region](https://img.shields.io/badge/Multi--Region-HA%2FDR-red)
 
-> A production-grade, multi-region AWS infrastructure framework built with Terraform modules.
-> Designed for high availability, security, and operational excellence following AWS Well-Architected principles.
+A production-grade, multi-region AWS infrastructure framework built with modular Terraform. Deploys a fully wired stack—VPC, ECS Fargate, Aurora PostgreSQL, CloudFront with WAF, and CloudWatch observability—across primary and disaster-recovery regions, following AWS Well-Architected principles for security, reliability, and cost optimization.
+
+</div>
 
 ---
 
 ## 🏗️ Architecture
 
+```mermaid
+graph LR
+    Users([👤 Internet]):::external
+
+    subgraph Edge ["☁️ Edge Layer"]
+        CF["CloudFront\nDistribution"]
+        WAF["AWS WAF v2\nRate Limit · Geo · IP"]
+        R53["Route 53\nLatency Routing"]
+        ACM["ACM TLS\nCertificate"]
+    end
+
+    subgraph VPC ["🔒 VPC — 10.0.0.0/16"]
+        subgraph Public ["Public Subnets (3 AZs)"]
+            ALB["Application\nLoad Balancer"]
+            NAT["NAT\nGateway"]
+        end
+        subgraph Private ["Private Subnets (3 AZs)"]
+            ECS["ECS Fargate\nCluster"]
+            AS["Auto Scaling\n2 → 10 tasks"]
+            ECR["ECR\nRegistry"]
+        end
+        subgraph DB ["Database Subnets (3 AZs)"]
+            Aurora["Aurora\nPostgreSQL"]
+            Replica["Read\nReplica"]
+        end
+    end
+
+    subgraph Observe ["📊 Observability"]
+        CW["CloudWatch\nDashboards & Alarms"]
+        SNS["SNS\nAlerts"]
+        S3["S3\nLogs"]
+    end
+
+    Users --> R53 --> CF
+    CF --> WAF --> ALB
+    ALB --> ECS
+    ECS --> AS
+    ECS --> Aurora
+    Aurora --> Replica
+    ECS --> CW
+    ALB --> CW
+    Aurora --> CW
+    CW --> SNS
+    CW --> S3
+    NAT -.-> ECS
+    ECR -.-> ECS
+    ACM -.-> CF
+
+    classDef external fill:#f9f,stroke:#333,stroke-width:2px
 ```
-                                    ┌──────────────┐
-                                    │    Users /   │
-                                    │   Clients    │
-                                    └──────┬───────┘
-                                           │
-                                           ▼
-                            ┌──────────────────────────────┐
-                            │        Route 53 DNS          │
-                            │   (Latency-Based Routing)    │
-                            │   Health Checks + Failover   │
-                            └──────────────┬───────────────┘
-                                           │
-                            ┌──────────────▼───────────────┐
-                            │   CloudFront Distribution    │
-                            │  ┌────────────────────────┐  │
-                            │  │   AWS WAF v2 (WebACL)  │  │
-                            │  │  Rate Limit · Geo · IP │  │
-                            │  └────────────────────────┘  │
-                            │  ACM TLS Certificate         │
-                            │  (us-east-1, auto-renew)     │
-                            └──────────────┬───────────────┘
-                                           │
-          ┌────────────────────────────────┼────────────────────────────────┐
-          │                                │                                │
-          ▼                                                                 ▼
-┌─────────────────────────────────┐               ┌─────────────────────────────────┐
-│     PRIMARY: us-east-1          │               │     DR REGION: eu-west-1        │
-│                                 │               │                                 │
-│  ┌───────────────────────────┐  │               │  ┌───────────────────────────┐  │
-│  │     VPC  10.0.0.0/16     │  │               │  │     VPC  10.1.0.0/16     │  │
-│  │                           │  │               │  │                           │  │
-│  │  ┌─────────────────────┐  │  │               │  │  ┌─────────────────────┐  │  │
-│  │  │  Public Subnets     │  │  │               │  │  │  Public Subnets     │  │  │
-│  │  │  AZ-a │ AZ-b │ AZ-c │  │  │               │  │  │  AZ-a │ AZ-b │ AZ-c │  │  │
-│  │  │       │      │      │  │  │               │  │  │       │      │      │  │  │
-│  │  │  ┌────▼──────▼───┐  │  │  │               │  │  │  ┌────▼──────▼───┐  │  │  │
-│  │  │  │  ALB (HTTPS)  │  │  │  │               │  │  │  │  ALB (HTTPS)  │  │  │  │
-│  │  │  │  + HTTP→HTTPS │  │  │  │               │  │  │  │  + HTTP→HTTPS │  │  │  │
-│  │  │  └───────┬───────┘  │  │  │               │  │  │  └───────┬───────┘  │  │  │
-│  │  │  NAT GW  NAT GW    │  │  │               │  │  │  NAT GW  NAT GW    │  │  │
-│  │  └──────────┼──────────┘  │  │               │  │  └──────────┼──────────┘  │  │
-│  │             │              │  │               │  │             │              │  │
-│  │  ┌──────────▼──────────┐  │  │               │  │  ┌──────────▼──────────┐  │  │
-│  │  │  Private Subnets    │  │  │               │  │  │  Private Subnets    │  │  │
-│  │  │  AZ-a │ AZ-b │ AZ-c │  │  │               │  │  │  AZ-a │ AZ-b │ AZ-c │  │  │
-│  │  │                      │  │  │               │  │  │                      │  │  │
-│  │  │  ┌────────────────┐  │  │  │               │  │  │  ┌────────────────┐  │  │  │
-│  │  │  │  ECS Fargate   │  │  │  │               │  │  │  │  ECS Fargate   │  │  │  │
-│  │  │  │  Cluster       │  │  │  │               │  │  │  │  Cluster       │  │  │  │
-│  │  │  │  ┌──────────┐  │  │  │  │               │  │  │  │  ┌──────────┐  │  │  │  │
-│  │  │  │  │ Service  │  │  │  │  │               │  │  │  │  │ Service  │  │  │  │  │
-│  │  │  │  │ Tasks x2 │  │  │  │  │               │  │  │  │  │ Tasks x2 │  │  │  │  │
-│  │  │  │  │ (scaling  │  │  │  │  │               │  │  │  │  │ (scaling  │  │  │  │  │
-│  │  │  │  │  2→10)   │  │  │  │  │               │  │  │  │  │  2→10)   │  │  │  │  │
-│  │  │  │  └──────────┘  │  │  │  │               │  │  │  │  └──────────┘  │  │  │  │
-│  │  │  │  ECR Registry  │  │  │  │               │  │  │  │  ECR Registry  │  │  │  │
-│  │  │  └───────┬────────┘  │  │  │               │  │  │  └───────┬────────┘  │  │  │
-│  │  └──────────┼───────────┘  │  │               │  │  └──────────┼───────────┘  │  │
-│  │             │              │  │               │  │             │              │  │
-│  │  ┌──────────▼──────────┐  │  │               │  │  ┌──────────▼──────────┐  │  │
-│  │  │  Database Subnets   │  │  │               │  │  │  Database Subnets   │  │  │
-│  │  │  AZ-a │ AZ-b │ AZ-c │  │  │               │  │  │  AZ-a │ AZ-b │ AZ-c │  │  │
-│  │  │                      │  │  │               │  │  │                      │  │  │
-│  │  │  ┌────────────────┐  │  │  │               │  │  │  ┌────────────────┐  │  │  │
-│  │  │  │ Aurora PgSQL   │  │  │  │     Cross-    │  │  │  │ Aurora PgSQL   │  │  │  │
-│  │  │  │ Writer +       │──┼──┼──┼──── Region ───┼──┼──│  │ Read Replica   │  │  │  │
-│  │  │  │ Reader         │  │  │  │   Replication │  │  │  │ (Async)        │  │  │  │
-│  │  │  │ (Encrypted)    │  │  │  │               │  │  │  │ (Encrypted)    │  │  │  │
-│  │  │  └────────────────┘  │  │  │               │  │  │  └────────────────┘  │  │  │
-│  │  └──────────────────────┘  │  │               │  │  └──────────────────────┘  │  │
-│  │                           │  │               │  │                           │  │
-│  └───────────────────────────┘  │               │  └───────────────────────────┘  │
-│                                 │               │                                 │
-│  ┌───────────────────────────┐  │               │  ┌───────────────────────────┐  │
-│  │  Security (per region)    │  │               │  │  Security (per region)    │  │
-│  │  • KMS (auto-rotation)    │  │               │  │  • KMS (auto-rotation)    │  │
-│  │  • SSM SecureString       │  │               │  │  • SSM SecureString       │  │
-│  │  • SG: ALB→App→DB only   │  │               │  │  • SG: ALB→App→DB only   │  │
-│  │  • VPC Flow Logs          │  │               │  │  • VPC Flow Logs          │  │
-│  └───────────────────────────┘  │               │  └───────────────────────────┘  │
-└─────────────────────────────────┘               └─────────────────────────────────┘
-          │                                                         │
-          └─────────────────────────┬───────────────────────────────┘
-                                    │
-                     ┌──────────────▼───────────────┐
-                     │    CloudWatch Monitoring      │
-                     │  ┌─────────────────────────┐  │
-                     │  │ Dashboards (per service) │  │
-                     │  │ Metric Alarms (CPU/Mem)  │  │
-                     │  │ SNS → Email/PagerDuty    │  │
-                     │  │ Centralized Log Groups   │  │
-                     │  └─────────────────────────┘  │
-                     └──────────────────────────────-┘
-                                    │
-                     ┌──────────────▼───────────────┐
-                     │   Terraform Remote State     │
-                     │  S3 (versioned, encrypted)   │
-                     │  DynamoDB (state locking)    │
-                     └──────────────────────────────┘
+
+### Multi-Region Failover
+
+```mermaid
+graph TB
+    DNS["Route 53\nHealth Checks + Failover"]
+
+    subgraph Primary ["🟢 Primary — us-east-1"]
+        P_CF["CloudFront + WAF"]
+        P_ALB["ALB"]
+        P_ECS["ECS Fargate"]
+        P_DB["Aurora Writer\n+ Reader"]
+    end
+
+    subgraph DR ["🔴 DR — eu-west-1"]
+        D_CF["CloudFront + WAF"]
+        D_ALB["ALB"]
+        D_ECS["ECS Fargate"]
+        D_DB["Aurora\nRead Replica"]
+    end
+
+    DNS -->|Active| Primary
+    DNS -.->|Failover| DR
+    P_CF --> P_ALB --> P_ECS --> P_DB
+    D_CF --> D_ALB --> D_ECS --> D_DB
+    P_DB -- "Cross-Region\nReplication" --> D_DB
 ```
 
 ---
 
 ## ✨ Features
 
-| Category | Details |
-|----------|---------|
-| **Networking** | Multi-AZ VPC with public/private/database subnets, NAT Gateways, VPC Flow Logs |
-| **Compute** | ECS Fargate with auto-scaling, health checks, blue/green ready |
-| **Database** | Aurora PostgreSQL with read replicas, encryption at rest, automated backups |
-| **CDN & Security** | CloudFront + WAF + ACM TLS certificates + Route 53 DNS |
-| **Observability** | CloudWatch dashboards, metric alarms, SNS alerting, centralized log groups |
-| **CI/CD** | GitHub Actions pipeline with lint → plan → apply workflow |
-| **Multi-Region** | Primary + DR region with provider aliases |
-| **Security** | KMS encryption, security groups, IAM least-privilege, VPC Flow Logs |
+- ✅ **Multi-Region HA/DR** — Primary + disaster recovery with automated failover
+- ✅ **Zero-Downtime Deploys** — ECS Fargate with blue/green deployment support
+- ✅ **Auto Scaling** — CPU/memory-based scaling from 2 to 10 tasks
+- ✅ **Aurora PostgreSQL** — Encrypted, multi-AZ with cross-region read replicas
+- ✅ **Edge Security** — CloudFront + WAF v2 with rate limiting, geo-blocking, IP rules
+- ✅ **Full Observability** — CloudWatch dashboards, metric alarms, SNS alerting, centralized logs
+- ✅ **Encryption Everywhere** — KMS keys with auto-rotation, TLS termination, encrypted storage
+- ✅ **Least-Privilege IAM** — Scoped roles for every service, no wildcards
+- ✅ **Remote State** — S3 + DynamoDB locking with versioning and encryption
+- ✅ **CI/CD Ready** — GitHub Actions pipeline: lint → plan → apply
 
 ---
 
-## 📋 Prerequisites
+## 📦 Module Structure
 
-- [Terraform](https://developer.hashicorp.com/terraform/install) ≥ 1.6
-- [AWS CLI](https://aws.amazon.com/cli/) v2 configured with credentials
-- An AWS account with permissions for VPC, ECS, RDS, CloudFront, Route 53, WAF, ACM, CloudWatch, SNS, KMS
-- A registered domain in Route 53 (for CDN/DNS module)
-- Docker (for building container images pushed to ECR)
+| Module | Description | Key Resources |
+|--------|-------------|---------------|
+| **`vpc`** | Multi-AZ networking foundation | VPC, public/private/database subnets, NAT Gateways, VPC Flow Logs, route tables |
+| **`ecs`** | Containerized compute layer | Fargate cluster, ALB, target groups, auto-scaling policies, ECR repository |
+| **`database`** | Managed relational database | Aurora PostgreSQL cluster, writer + reader instances, subnet groups, parameter groups |
+| **`cdn`** | Edge distribution & DNS | CloudFront distribution, WAF WebACL, Route 53 records, ACM certificates |
+| **`monitoring`** | Observability & alerting | CloudWatch dashboards, metric alarms, log groups, SNS topics |
+| **`security`** | Encryption & access control | KMS keys, security groups, SSM parameters, IAM roles |
+
+```mermaid
+graph TD
+    Root["main.tf\n(Root Module)"] --> VPC["modules/vpc"]
+    Root --> ECS["modules/ecs"]
+    Root --> DB["modules/database"]
+    Root --> CDN["modules/cdn"]
+    Root --> MON["modules/monitoring"]
+    Root --> SEC["modules/security"]
+
+    VPC -->|subnet_ids| ECS
+    VPC -->|db_subnet_ids| DB
+    SEC -->|sg_ids, kms_key| ECS
+    SEC -->|sg_ids, kms_key| DB
+    ECS -->|alb_arn| CDN
+    ECS -->|service_name| MON
+    DB -->|cluster_id| MON
+```
 
 ---
 
 ## 🚀 Quick Start
 
 ```bash
-# 1. Clone the repository
+# Clone
 git clone https://github.com/hunterspence/cloudforge.git
 cd cloudforge
 
-# 2. Copy and configure variables
+# Configure
 cp terraform.tfvars.example terraform.tfvars
-# Edit terraform.tfvars with your values
+# ✏️  Edit terraform.tfvars with your domain, regions, and preferences
 
-# 3. Initialize Terraform
-terraform init
-
-# 4. Review the execution plan
-terraform plan -out=tfplan
-
-# 5. Apply the infrastructure
-terraform apply tfplan
+# Deploy
+terraform init          # Download providers & modules
+terraform plan -out=tfplan   # Preview changes
+terraform apply tfplan       # Build everything
 ```
-
----
-
-## 📁 Project Structure
-
-```
-cloudforge/
-├── main.tf                    # Root module — orchestrates all child modules
-├── variables.tf               # Input variables with defaults
-├── outputs.tf                 # Stack outputs (ALB DNS, RDS endpoint, etc.)
-├── providers.tf               # AWS provider with multi-region aliases
-├── backends.tf                # S3 + DynamoDB remote state backend
-├── terraform.tfvars.example   # Example variable values
-├── Makefile                   # make init/plan/apply/destroy/fmt/validate
-├── modules/
-│   ├── vpc/                   # VPC, subnets, NAT, flow logs
-│   ├── ecs/                   # Fargate cluster, ALB, auto-scaling, ECR
-│   ├── database/              # Aurora PostgreSQL cluster
-│   ├── cdn/                   # CloudFront, WAF, Route 53, ACM
-│   ├── monitoring/            # CloudWatch dashboards, alarms, SNS
-│   └── security/              # KMS keys, security groups, SSM secrets
-└── ci-cd/
-    └── github-actions.yml     # CI/CD pipeline
-```
-
----
-
-## 💰 Cost Estimate
-
-| Resource | Monthly Estimate (us-east-1) |
-|----------|------------------------------|
-| NAT Gateway (3× AZ) | ~$97 + data |
-| ALB | ~$22 + LCU |
-| ECS Fargate (2× 0.5vCPU/1GB) | ~$29 |
-| Aurora PostgreSQL (db.r6g.large) | ~$175 |
-| CloudFront | ~$1 + requests |
-| WAF WebACL | ~$6 + rules |
-| CloudWatch | ~$3 |
-| **Estimated Total** | **~$333/mo** |
-
-> 💡 Use `terraform plan` to preview exact resource counts. Costs vary by usage.
-
----
-
-## 🔧 Configuration
-
-Key variables in `terraform.tfvars`:
 
 | Variable | Description | Default |
 |----------|-------------|---------|
-| `project_name` | Prefix for all resource names | `cloudforge` |
+| `project_name` | Resource name prefix | `cloudforge` |
 | `environment` | Environment tag | `production` |
 | `primary_region` | Primary AWS region | `us-east-1` |
-| `dr_region` | Disaster recovery region | `eu-west-1` |
-| `domain_name` | Your Route 53 domain | — |
+| `dr_region` | DR region | `eu-west-1` |
+| `domain_name` | Route 53 domain | — |
 | `vpc_cidr` | VPC CIDR block | `10.0.0.0/16` |
 | `db_instance_class` | Aurora instance size | `db.r6g.large` |
 
@@ -223,26 +175,105 @@ See [`variables.tf`](variables.tf) for the full list.
 
 ---
 
+## 💰 Cost Estimate
+
+Monthly estimates for `us-east-1` (USD):
+
+| Service | Small | Medium | Large |
+|---------|------:|-------:|------:|
+| **NAT Gateway** (per AZ) | $32 | $97 | $97 |
+| **ALB** | $22 | $22 | $45 |
+| **ECS Fargate** (tasks) | $15 ×1 | $29 ×2 | $58 ×4 |
+| **Aurora PostgreSQL** | $60 | $175 | $350 |
+| **CloudFront** | $1 | $5 | $50 |
+| **WAF WebACL** | $6 | $11 | $21 |
+| **CloudWatch** | $3 | $10 | $30 |
+| **S3 Logs** | $1 | $3 | $10 |
+| | | | |
+| **Estimated Total** | **~$140/mo** | **~$350/mo** | **~$660/mo** |
+
+> 💡 Costs scale with traffic and instance sizes. Run `terraform plan` to see exact resource counts.
+
+---
+
+## 🔐 Security
+
+```mermaid
+graph LR
+    subgraph Perimeter
+        WAF["WAF v2\nOWASP Rules"]
+        CF["CloudFront\nTLS 1.2+"]
+    end
+    subgraph Network
+        SG["Security Groups\nALB→App→DB only"]
+        VFL["VPC Flow Logs"]
+        PS["Private Subnets\nNo public IPs"]
+    end
+    subgraph Data
+        KMS["KMS\nAuto-Rotation"]
+        SSM["SSM\nSecureString"]
+        ENC["Aurora\nEncrypted at Rest"]
+    end
+
+    WAF --> CF --> SG --> PS
+    KMS --> ENC
+    KMS --> SSM
+    VFL --> S3["S3 Audit Logs"]
+```
+
+| Layer | Controls |
+|-------|----------|
+| **Edge** | WAF rate limiting, geo-blocking, IP allowlists, managed rule groups |
+| **Transport** | TLS 1.2+ everywhere, ACM auto-renewing certificates, HTTPS redirect |
+| **Network** | Private subnets for compute/DB, security groups with minimal ingress, VPC Flow Logs |
+| **Data** | KMS encryption at rest (auto-rotation), SSM SecureString for secrets |
+| **Identity** | IAM roles with least-privilege policies, no long-lived credentials |
+| **Audit** | CloudTrail, VPC Flow Logs, CloudWatch log retention |
+
+---
+
+## 🔄 CI/CD Pipeline
+
+```mermaid
+graph LR
+    Push["git push"] --> Lint["terraform fmt\n& validate"]
+    Lint --> Plan["terraform plan\n(-out=tfplan)"]
+    Plan --> Review["Manual\nApproval"]
+    Review --> Apply["terraform apply\ntfplan"]
+    Apply --> Notify["SNS\nNotification"]
+
+    style Review fill:#ff9,stroke:#333
+```
+
+The included GitHub Actions workflow ([`ci-cd/github-actions.yml`](ci-cd/github-actions.yml)) runs on every push:
+
+1. **Lint** — `terraform fmt -check` and `terraform validate`
+2. **Plan** — Generates execution plan as a PR comment
+3. **Apply** — Requires manual approval, then applies to AWS
+4. **Notify** — Posts deployment status to SNS/Slack
+
+---
+
 ## 🧹 Teardown
 
 ```bash
-# Destroy all resources (will prompt for confirmation)
+# Interactive (prompts for confirmation)
 terraform destroy
 
-# Or auto-approve (use with caution)
+# Non-interactive
 terraform destroy -auto-approve
 ```
 
-> ⚠️ This will delete **all** infrastructure including databases. Ensure backups are exported first.
+> ⚠️ **This deletes ALL infrastructure including databases.** Export backups before destroying.
 
 ---
 
-## 📜 License
+<div align="center">
 
-MIT License — see [LICENSE](LICENSE) for details.
+**[📁 Project Structure](.)** · **[📖 Variables](variables.tf)** · **[📤 Outputs](outputs.tf)**
 
----
+Built by [Hunter Spence](https://github.com/hunterspence) · Cloud Solutions Architect
 
-<p align="center">
-  Built by <a href="https://github.com/hunterspence">Hunter Spence</a> · Cloud Solutions Architect
-</p>
+MIT License
+
+</div>
