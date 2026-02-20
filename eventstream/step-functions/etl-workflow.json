@@ -1,0 +1,97 @@
+{
+  "Comment": "EventStream ETL Workflow — Orchestrates data processing pipeline",
+  "StartAt": "ValidateInput",
+  "States": {
+    "ValidateInput": {
+      "Type": "Task",
+      "Resource": "${IngestFunctionArn}",
+      "Parameters": {
+        "action": "validate",
+        "payload.$": "$.payload"
+      },
+      "ResultPath": "$.validation",
+      "Next": "IsValid",
+      "Retry": [{ "ErrorEquals": ["States.TaskFailed"], "MaxAttempts": 2, "BackoffRate": 2 }],
+      "Catch": [{ "ErrorEquals": ["States.ALL"], "Next": "HandleError", "ResultPath": "$.error" }]
+    },
+    "IsValid": {
+      "Type": "Choice",
+      "Choices": [{
+        "Variable": "$.validation.valid",
+        "BooleanEquals": true,
+        "Next": "ProcessRecords"
+      }],
+      "Default": "HandleInvalidData"
+    },
+    "ProcessRecords": {
+      "Type": "Task",
+      "Resource": "${ProcessFunctionArn}",
+      "Parameters": {
+        "action": "process",
+        "records.$": "$.validation.records"
+      },
+      "ResultPath": "$.processing",
+      "Next": "RunAggregation",
+      "Retry": [{ "ErrorEquals": ["States.TaskFailed"], "MaxAttempts": 3, "BackoffRate": 2 }],
+      "Catch": [{ "ErrorEquals": ["States.ALL"], "Next": "HandleError", "ResultPath": "$.error" }]
+    },
+    "RunAggregation": {
+      "Type": "Task",
+      "Resource": "${AggregateFunctionArn}",
+      "Parameters": {
+        "action": "aggregate",
+        "date.$": "$.processing.date"
+      },
+      "ResultPath": "$.aggregation",
+      "Next": "CheckAnomalies",
+      "Retry": [{ "ErrorEquals": ["States.TaskFailed"], "MaxAttempts": 2, "BackoffRate": 2 }]
+    },
+    "CheckAnomalies": {
+      "Type": "Choice",
+      "Choices": [{
+        "Variable": "$.aggregation.body.anomalies_detected",
+        "NumericGreaterThan": 0,
+        "Next": "NotifyAnomalies"
+      }],
+      "Default": "Success"
+    },
+    "NotifyAnomalies": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::sns:publish",
+      "Parameters": {
+        "TopicArn": "${AlertTopicArn}",
+        "Subject": "EventStream: Anomalies Detected",
+        "Message.$": "States.JsonToString($.aggregation.body)"
+      },
+      "Next": "Success"
+    },
+    "HandleInvalidData": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::sns:publish",
+      "Parameters": {
+        "TopicArn": "${AlertTopicArn}",
+        "Subject": "EventStream: Invalid Data Received",
+        "Message": "Validation failed for incoming batch"
+      },
+      "Next": "Failed"
+    },
+    "HandleError": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::sns:publish",
+      "Parameters": {
+        "TopicArn": "${AlertTopicArn}",
+        "Subject": "EventStream: Pipeline Error",
+        "Message.$": "States.JsonToString($.error)"
+      },
+      "Next": "Failed"
+    },
+    "Success": {
+      "Type": "Succeed"
+    },
+    "Failed": {
+      "Type": "Fail",
+      "Error": "PipelineError",
+      "Cause": "ETL pipeline encountered an error"
+    }
+  }
+}

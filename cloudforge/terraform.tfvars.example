@@ -1,0 +1,38 @@
+# CloudForge - Example Variables
+# Copy to terraform.tfvars and customize
+
+project_name = "my-app"
+environment  = "production"
+aws_region   = "us-east-1"
+
+# VPC
+vpc_cidr            = "10.0.0.0/16"
+availability_zones  = ["us-east-1a", "us-east-1b", "us-east-1c"]
+
+# ECS
+container_image  = "nginx:latest"
+container_port   = 80
+desired_count    = 2
+cpu              = 256
+memory           = 512
+min_capacity     = 1
+max_capacity     = 10
+
+# Database
+db_instance_class    = "db.r6g.large"
+db_name              = "appdb"
+db_master_username   = "admin"
+db_backup_retention  = 7
+
+# CDN
+domain_name     = "example.com"
+certificate_arn = ""
+
+# Monitoring
+alert_email = "ops@example.com"
+
+tags = {
+  Project     = "CloudForge"
+  ManagedBy   = "Terraform"
+  Environment = "production"
+}

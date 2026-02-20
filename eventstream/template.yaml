@@ -1,0 +1,283 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  EventStream — Serverless Real-Time Analytics Pipeline.
+  Ingests, processes, and aggregates streaming events via
+  API Gateway, Lambda, Kinesis, S3, DynamoDB, Athena, and Step Functions.
+
+Globals:
+  Function:
+    Runtime: python3.12
+    Timeout: 30
+    MemorySize: 256
+    Tracing: Active
+    Environment:
+      Variables:
+        LOG_LEVEL: INFO
+        POWERTOOLS_SERVICE_NAME: eventstream
+
+Parameters:
+  Environment:
+    Type: String
+    Default: prod
+    AllowedValues: [dev, staging, prod]
+  KinesisShardCount:
+    Type: Number
+    Default: 2
+  RetentionDays:
+    Type: Number
+    Default: 90
+    Description: S3 data retention in days
+
+Resources:
+  # ──────────────────────────────────────
+  # Kinesis Data Stream
+  # ──────────────────────────────────────
+  EventStream:
+    Type: AWS::Kinesis::Stream
+    Properties:
+      Name: !Sub eventstream-${Environment}
+      ShardCount: !Ref KinesisShardCount
+      RetentionPeriodHours: 24
+      StreamEncryption:
+        EncryptionType: KMS
+        KeyId: alias/aws/kinesis
+
+  # ──────────────────────────────────────
+  # S3 Data Lake
+  # ──────────────────────────────────────
+  DataLakeBucket:
+    Type: AWS::S3::Bucket
+    DeletionPolicy: Retain
+    Properties:
+      BucketName: !Sub eventstream-datalake-${AWS::AccountId}-${Environment}
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      LifecycleConfiguration:
+        Rules:
+          - Id: TransitionToIA
+            Status: Enabled
+            Transitions:
+              - StorageClass: STANDARD_IA
+                TransitionInDays: 30
+              - StorageClass: GLACIER
+                TransitionInDays: 90
+            ExpirationInDays: !Ref RetentionDays
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      VersioningConfiguration:
+        Status: Enabled
+
+  # ──────────────────────────────────────
+  # DynamoDB — Real-Time Metrics
+  # ──────────────────────────────────────
+  MetricsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub eventstream-metrics-${Environment}
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: pk
+          AttributeType: S
+        - AttributeName: sk
+          AttributeType: S
+      KeySchema:
+        - AttributeName: pk
+          KeyType: HASH
+        - AttributeName: sk
+          KeyType: RANGE
+      TimeToLiveSpecification:
+        AttributeName: ttl
+        Enabled: true
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
+
+  # ──────────────────────────────────────
+  # SNS — Anomaly Alerts
+  # ──────────────────────────────────────
+  AlertTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: !Sub eventstream-alerts-${Environment}
+      KmsMasterKeyId: alias/aws/sns
+
+  # ──────────────────────────────────────
+  # Lambda — Ingest Function
+  # ──────────────────────────────────────
+  IngestFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub eventstream-ingest-${Environment}
+      Handler: handler.lambda_handler
+      CodeUri: src/ingest/
+      Description: Validates incoming events and writes to Kinesis
+      Environment:
+        Variables:
+          KINESIS_STREAM_NAME: !Ref EventStream
+          ENVIRONMENT: !Ref Environment
+      Policies:
+        - KinesisCrudPolicy:
+            StreamName: !Ref EventStream
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            Path: /events
+            Method: POST
+            RestApiId: !Ref EventApi
+
+  # ──────────────────────────────────────
+  # Lambda — Process Function (Kinesis Trigger)
+  # ──────────────────────────────────────
+  ProcessFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub eventstream-process-${Environment}
+      Handler: handler.lambda_handler
+      CodeUri: src/process/
+      Description: Reads Kinesis stream, transforms to Parquet, writes S3 + DynamoDB
+      Timeout: 60
+      MemorySize: 512
+      Environment:
+        Variables:
+          DATA_LAKE_BUCKET: !Ref DataLakeBucket
+          METRICS_TABLE: !Ref MetricsTable
+          ENVIRONMENT: !Ref Environment
+      Policies:
+        - S3CrudPolicy:
+            BucketName: !Ref DataLakeBucket
+        - DynamoDBCrudPolicy:
+            TableName: !Ref MetricsTable
+      Events:
+        KinesisEvent:
+          Type: Kinesis
+          Properties:
+            Stream: !GetAtt EventStream.Arn
+            StartingPosition: TRIM_HORIZON
+            BatchSize: 100
+            MaximumBatchingWindowInSeconds: 30
+            BisectBatchOnFunctionError: true
+            MaximumRetryAttempts: 3
+            ParallelizationFactor: 2
+
+  # ──────────────────────────────────────
+  # Lambda — Aggregate Function
+  # ──────────────────────────────────────
+  AggregateFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub eventstream-aggregate-${Environment}
+      Handler: handler.lambda_handler
+      CodeUri: src/aggregate/
+      Description: Hourly aggregation with anomaly detection and SNS alerts
+      Timeout: 120
+      MemorySize: 512
+      Environment:
+        Variables:
+          DATA_LAKE_BUCKET: !Ref DataLakeBucket
+          METRICS_TABLE: !Ref MetricsTable
+          ALERT_TOPIC_ARN: !Ref AlertTopic
+          ENVIRONMENT: !Ref Environment
+      Policies:
+        - S3CrudPolicy:
+            BucketName: !Ref DataLakeBucket
+        - DynamoDBCrudPolicy:
+            TableName: !Ref MetricsTable
+        - SNSPublishMessagePolicy:
+            TopicArn: !Ref AlertTopic
+
+  # ──────────────────────────────────────
+  # API Gateway
+  # ──────────────────────────────────────
+  EventApi:
+    Type: AWS::Serverless::Api
+    Properties:
+      Name: !Sub eventstream-api-${Environment}
+      StageName: !Ref Environment
+      TracingEnabled: true
+      AccessLogSetting:
+        DestinationArn: !GetAtt ApiLogGroup.Arn
+        Format: >-
+          {"requestId":"$context.requestId","ip":"$context.identity.sourceIp",
+          "method":"$context.httpMethod","path":"$context.path",
+          "status":"$context.status","latency":"$context.responseLatency"}
+      MethodSettings:
+        - MetricsEnabled: true
+          DataTraceEnabled: false
+          LoggingLevel: INFO
+          ResourcePath: /*
+          HttpMethod: '*'
+          ThrottlingBurstLimit: 100
+          ThrottlingRateLimit: 50
+
+  ApiLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /aws/apigateway/eventstream-${Environment}
+      RetentionInDays: 30
+
+  # ──────────────────────────────────────
+  # Step Functions — ETL Workflow
+  # ──────────────────────────────────────
+  ETLStateMachine:
+    Type: AWS::Serverless::StateMachine
+    Properties:
+      Name: !Sub eventstream-etl-${Environment}
+      DefinitionUri: step-functions/etl-workflow.json
+      DefinitionSubstitutions:
+        AggregateFunctionArn: !GetAtt AggregateFunction.Arn
+      Policies:
+        - LambdaInvokePolicy:
+            FunctionName: !Ref AggregateFunction
+        - CloudWatchLogsFullAccess
+      Events:
+        HourlySchedule:
+          Type: Schedule
+          Properties:
+            Schedule: rate(1 hour)
+            Description: Trigger hourly aggregation
+            Enabled: true
+
+  # ──────────────────────────────────────
+  # Athena — Query Infrastructure
+  # ──────────────────────────────────────
+  AthenaWorkGroup:
+    Type: AWS::Athena::WorkGroup
+    Properties:
+      Name: !Sub eventstream-${Environment}
+      State: ENABLED
+      WorkGroupConfiguration:
+        ResultConfiguration:
+          OutputLocation: !Sub s3://${DataLakeBucket}/athena-results/
+        EnforceWorkGroupConfiguration: true
+        PublishCloudWatchMetricsEnabled: true
+
+Outputs:
+  ApiEndpoint:
+    Description: API Gateway endpoint URL
+    Value: !Sub https://${EventApi}.execute-api.${AWS::Region}.amazonaws.com/${Environment}/events
+
+  KinesisStreamName:
+    Description: Kinesis stream name
+    Value: !Ref EventStream
+
+  DataLakeBucket:
+    Description: S3 data lake bucket
+    Value: !Ref DataLakeBucket
+
+  MetricsTable:
+    Description: DynamoDB metrics table
+    Value: !Ref MetricsTable
+
+  AlertTopicArn:
+    Description: SNS alert topic ARN
+    Value: !Ref AlertTopic
+
+  StateMachineArn:
+    Description: Step Functions state machine ARN
+    Value: !Ref ETLStateMachine
