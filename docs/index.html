@@ -3,396 +3,174 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Hunter Spence — AWS Cloud Architecture Portfolio</title>
-<meta name="description" content="Production-grade AWS infrastructure projects: Terraform, Serverless, Security, Cost Optimization. By Hunter Spence.">
+<title>AWS Cloud Architecture Portfolio — Hunter Spence</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Playfair+Display:wght@700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
-*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
-:root{--bg:#0a0a0f;--surface:#12121a;--surface2:#1a1a2e;--border:#ffffff10;--text:#e2e8f0;--text-dim:#94a3b8;--purple:#7c3aed;--indigo:#6366f1;--cyan:#06b6d4;--gradient:linear-gradient(135deg,#6366f1,#7c3aed,#06b6d4)}
-html{scroll-behavior:smooth;scrollbar-width:thin;scrollbar-color:#7c3aed #0a0a0f}
-body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.6;overflow-x:hidden}
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#0a0a0f;--surface:#12121a;--surface2:#1a1a2e;--border:#2a2a3e;--purple:#6366f1;--violet:#7c3aed;--cyan:#06b6d4;--text:#e2e8f0;--muted:#94a3b8;--white:#fff}
+body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);line-height:1.6;overflow-x:hidden}
 a{color:var(--cyan);text-decoration:none;transition:color .2s}
-a:hover{color:#22d3ee}
-
-/* Utility */
-.container{max-width:1200px;margin:0 auto;padding:0 24px}
-.gradient-text{background:var(--gradient);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
-.badge{display:inline-block;padding:4px 12px;border-radius:20px;font-size:.75rem;font-weight:600;letter-spacing:.5px}
-
-/* Glow orbs */
-.glow{position:fixed;border-radius:50%;filter:blur(120px);opacity:.12;pointer-events:none;z-index:0}
-.glow-1{width:600px;height:600px;background:#6366f1;top:-200px;left:-200px}
-.glow-2{width:500px;height:500px;background:#7c3aed;bottom:-150px;right:-150px}
-.glow-3{width:400px;height:400px;background:#06b6d4;top:50%;left:60%;transform:translate(-50%,-50%)}
-
-/* Nav */
-nav{position:fixed;top:0;left:0;right:0;z-index:100;backdrop-filter:blur(20px);background:rgba(10,10,15,.8);border-bottom:1px solid var(--border);padding:16px 0}
-nav .container{display:flex;justify-content:space-between;align-items:center}
-nav .logo{font-weight:800;font-size:1.1rem;letter-spacing:-0.5px}
-nav ul{list-style:none;display:flex;gap:28px}
-nav ul a{color:var(--text-dim);font-size:.875rem;font-weight:500;transition:color .2s}
-nav ul a:hover{color:#fff}
+a:hover{color:var(--purple)}
 
 /* Hero */
-.hero{min-height:100vh;display:flex;align-items:center;justify-content:center;text-align:center;position:relative;padding:120px 24px 80px}
-.hero-inner{position:relative;z-index:1}
-.hero .aws-badge{display:inline-flex;align-items:center;gap:8px;background:linear-gradient(135deg,rgba(99,102,241,.15),rgba(124,58,237,.15));border:1px solid rgba(99,102,241,.3);border-radius:40px;padding:8px 20px;font-size:.85rem;font-weight:600;color:var(--indigo);margin-bottom:32px;animation:fadeDown .8s ease}
-.hero .aws-badge span{font-size:1.1rem}
-.hero h1{font-family:'Playfair Display',serif;font-size:clamp(2.5rem,6vw,4.5rem);font-weight:800;line-height:1.1;margin-bottom:16px;animation:fadeDown .8s ease .1s both}
-.hero .name{font-size:clamp(1.1rem,2.5vw,1.5rem);font-weight:300;color:var(--text-dim);margin-bottom:12px;animation:fadeDown .8s ease .2s both}
-.hero .tagline{font-size:clamp(.9rem,1.8vw,1.15rem);color:var(--text-dim);letter-spacing:2px;text-transform:uppercase;font-weight:500;margin-bottom:40px;animation:fadeDown .8s ease .3s both}
-.hero .cta-group{display:flex;gap:16px;justify-content:center;flex-wrap:wrap;animation:fadeDown .8s ease .4s both}
-.btn{display:inline-flex;align-items:center;gap:8px;padding:14px 32px;border-radius:12px;font-weight:600;font-size:.95rem;transition:all .3s;cursor:pointer;border:none}
-.btn-primary{background:var(--gradient);color:#fff;box-shadow:0 4px 24px rgba(99,102,241,.3)}
-.btn-primary:hover{transform:translateY(-2px);box-shadow:0 8px 32px rgba(99,102,241,.45);color:#fff}
-.btn-outline{background:transparent;color:var(--text);border:1px solid var(--border)}
-.btn-outline:hover{border-color:var(--indigo);color:#fff;transform:translateY(-2px)}
-
-/* Scroll indicator */
-.scroll-hint{position:absolute;bottom:32px;left:50%;transform:translateX(-50%);animation:bounce 2s infinite}
-.scroll-hint span{display:block;width:2px;height:40px;background:linear-gradient(to bottom,transparent,var(--indigo));border-radius:2px}
-
-/* Section styles */
-section{position:relative;z-index:1;padding:100px 0}
-.section-label{font-size:.8rem;font-weight:700;letter-spacing:3px;text-transform:uppercase;color:var(--indigo);margin-bottom:12px}
-.section-title{font-family:'Playfair Display',serif;font-size:clamp(1.8rem,4vw,2.8rem);font-weight:800;margin-bottom:16px}
-.section-desc{color:var(--text-dim);font-size:1.05rem;max-width:600px;margin-bottom:48px}
+.hero{min-height:90vh;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:2rem;position:relative}
+.hero::before{content:'';position:absolute;top:-40%;left:-20%;width:60%;height:80%;background:radial-gradient(circle,rgba(99,102,241,.12),transparent 70%);pointer-events:none}
+.hero::after{content:'';position:absolute;bottom:-30%;right:-20%;width:50%;height:70%;background:radial-gradient(circle,rgba(6,182,212,.08),transparent 70%);pointer-events:none}
+.badge{display:inline-flex;align-items:center;gap:.5rem;background:linear-gradient(135deg,rgba(99,102,241,.15),rgba(124,58,237,.15));border:1px solid rgba(99,102,241,.3);border-radius:999px;padding:.5rem 1.2rem;font-size:.85rem;font-weight:600;color:var(--purple);margin-bottom:1.5rem;backdrop-filter:blur(8px)}
+.badge img{width:20px;height:20px}
+h1{font-size:clamp(2.2rem,5vw,4rem);font-weight:800;background:linear-gradient(135deg,var(--white),var(--purple),var(--cyan));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;line-height:1.15;margin-bottom:1rem}
+.tagline{font-size:1.15rem;color:var(--muted);max-width:600px;margin-bottom:2rem}
+.hero-buttons{display:flex;gap:1rem;flex-wrap:wrap;justify-content:center}
+.btn{display:inline-flex;align-items:center;gap:.5rem;padding:.75rem 1.5rem;border-radius:10px;font-weight:600;font-size:.95rem;transition:all .25s;border:none;cursor:pointer}
+.btn-primary{background:linear-gradient(135deg,var(--purple),var(--violet));color:#fff;box-shadow:0 4px 20px rgba(99,102,241,.3)}
+.btn-primary:hover{transform:translateY(-2px);box-shadow:0 6px 30px rgba(99,102,241,.45);color:#fff}
+.btn-outline{background:transparent;border:1px solid var(--border);color:var(--text)}
+.btn-outline:hover{border-color:var(--purple);color:var(--purple);transform:translateY(-2px)}
 
 /* Skills */
-.skills-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:20px}
-.skill-card{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:28px;transition:all .3s}
-.skill-card:hover{border-color:rgba(99,102,241,.4);transform:translateY(-4px);box-shadow:0 12px 40px rgba(0,0,0,.3)}
-.skill-card .icon{width:48px;height:48px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:1.4rem;margin-bottom:16px}
-.skill-card h3{font-size:1.05rem;font-weight:700;margin-bottom:8px}
-.skill-card p{font-size:.85rem;color:var(--text-dim);line-height:1.5}
-.skill-card .icon.terraform{background:linear-gradient(135deg,rgba(99,102,241,.2),rgba(124,58,237,.1))}
-.skill-card .icon.python{background:linear-gradient(135deg,rgba(6,182,212,.2),rgba(99,102,241,.1))}
-.skill-card .icon.aws{background:linear-gradient(135deg,rgba(124,58,237,.2),rgba(6,182,212,.1))}
-.skill-card .icon.cicd{background:linear-gradient(135deg,rgba(99,102,241,.15),rgba(6,182,212,.15))}
-
-/* Projects */
-.projects-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(540px,1fr));gap:28px}
-@media(max-width:600px){.projects-grid{grid-template-columns:1fr}}
-.project-card{background:var(--surface);border:1px solid var(--border);border-radius:20px;overflow:hidden;transition:all .4s}
-.project-card:hover{border-color:rgba(99,102,241,.35);transform:translateY(-6px);box-shadow:0 20px 60px rgba(0,0,0,.4)}
-.project-header{padding:32px 32px 0}
-.project-header .emoji{font-size:2rem;margin-bottom:12px;display:block}
-.project-header h3{font-size:1.3rem;font-weight:800;margin-bottom:8px}
-.project-header p{color:var(--text-dim);font-size:.9rem;margin-bottom:16px;line-height:1.6}
-.tech-tags{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:20px;padding:0 32px}
-.tech-tag{padding:4px 12px;border-radius:8px;font-size:.75rem;font-weight:600;background:rgba(99,102,241,.1);color:var(--indigo);border:1px solid rgba(99,102,241,.2)}
-.diagram-container{background:var(--surface2);margin:0 16px 16px;border-radius:12px;padding:20px;min-height:80px}
-.diagram-container .mermaid{font-size:.8rem}
-.project-footer{padding:0 32px 28px;display:flex;justify-content:flex-end}
-.project-footer .btn{padding:10px 24px;font-size:.85rem;border-radius:10px}
+.section{padding:5rem 2rem;max-width:1100px;margin:0 auto}
+.section-title{font-size:1.8rem;font-weight:700;text-align:center;margin-bottom:.5rem}
+.section-sub{text-align:center;color:var(--muted);margin-bottom:3rem}
+.skills-grid{display:flex;flex-wrap:wrap;gap:.75rem;justify-content:center}
+.skill-tag{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:.55rem 1.1rem;font-size:.88rem;font-weight:500;transition:all .2s}
+.skill-tag:hover{border-color:var(--purple);color:var(--purple);transform:translateY(-2px)}
 
 /* Stats */
-.stats-section{background:var(--surface);border-top:1px solid var(--border);border-bottom:1px solid var(--border)}
-.stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:32px;text-align:center}
-.stat-item .number{font-family:'Playfair Display',serif;font-size:clamp(2.2rem,4vw,3.2rem);font-weight:800;line-height:1}
-.stat-item .label{color:var(--text-dim);font-size:.9rem;margin-top:8px;font-weight:500}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:1.5rem;margin:4rem auto;max-width:700px;padding:0 2rem}
+.stat{text-align:center;padding:2rem 1rem;background:var(--surface);border:1px solid var(--border);border-radius:16px}
+.stat-num{font-size:2.2rem;font-weight:800;background:linear-gradient(135deg,var(--purple),var(--cyan));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.stat-label{color:var(--muted);font-size:.9rem;margin-top:.25rem}
+
+/* Projects */
+.projects-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:1.5rem}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:1.75rem;transition:all .3s;display:flex;flex-direction:column}
+.card:hover{border-color:var(--purple);transform:translateY(-4px);box-shadow:0 8px 30px rgba(99,102,241,.12)}
+.card-icon{font-size:2rem;margin-bottom:.75rem}
+.card h3{font-size:1.15rem;font-weight:700;margin-bottom:.5rem}
+.card p{color:var(--muted);font-size:.9rem;flex:1;margin-bottom:1rem}
+.card .mermaid{background:rgba(255,255,255,.03);border-radius:8px;padding:.5rem;margin-bottom:1rem;font-size:.7rem;min-height:60px}
+.tags{display:flex;flex-wrap:wrap;gap:.4rem;margin-bottom:1rem}
+.tag{background:rgba(99,102,241,.1);color:var(--purple);font-size:.75rem;padding:.25rem .6rem;border-radius:6px;font-weight:500}
+.card .btn{width:100%;justify-content:center;font-size:.88rem;padding:.6rem}
 
 /* Contact */
-.contact-inner{background:linear-gradient(135deg,rgba(99,102,241,.08),rgba(124,58,237,.08),rgba(6,182,212,.05));border:1px solid var(--border);border-radius:24px;padding:60px;text-align:center;max-width:700px;margin:0 auto}
-.contact-inner h2{font-family:'Playfair Display',serif;font-size:clamp(1.6rem,3vw,2.2rem);margin-bottom:12px}
-.contact-inner p{color:var(--text-dim);margin-bottom:32px}
-.contact-links{display:flex;gap:16px;justify-content:center;flex-wrap:wrap}
-.contact-link{display:inline-flex;align-items:center;gap:8px;padding:12px 24px;border-radius:12px;background:var(--surface);border:1px solid var(--border);font-weight:600;font-size:.9rem;color:var(--text);transition:all .3s}
-.contact-link:hover{border-color:var(--indigo);color:#fff;transform:translateY(-2px)}
+.contact{text-align:center;padding:4rem 2rem}
+.contact h2{font-size:1.8rem;font-weight:700;margin-bottom:1rem}
+.contact p{color:var(--muted);margin-bottom:1.5rem}
+.contact-links{display:flex;gap:1rem;justify-content:center;flex-wrap:wrap}
 
 /* Footer */
-footer{border-top:1px solid var(--border);padding:40px 0;text-align:center}
-footer p{color:var(--text-dim);font-size:.85rem}
+footer{text-align:center;padding:2rem;color:var(--muted);font-size:.85rem;border-top:1px solid var(--border)}
 
-/* Animations */
-@keyframes fadeDown{from{opacity:0;transform:translateY(-20px)}to{opacity:1;transform:translateY(0)}}
-@keyframes bounce{0%,100%{transform:translateX(-50%) translateY(0)}50%{transform:translateX(-50%) translateY(8px)}}
-@keyframes fadeIn{from{opacity:0;transform:translateY(30px)}to{opacity:1;transform:translateY(0)}}
-.fade-in{opacity:0;animation:fadeIn .7s ease forwards}
-.fade-in.d1{animation-delay:.1s}.fade-in.d2{animation-delay:.2s}.fade-in.d3{animation-delay:.3s}.fade-in.d4{animation-delay:.4s}
-
-/* Responsive */
-@media(max-width:768px){
-  nav ul{gap:16px}
-  .contact-inner{padding:40px 24px}
-  section{padding:60px 0}
-  .projects-grid{grid-template-columns:1fr}
-}
-@media(max-width:480px){
-  nav ul{display:none}
-}
+/* Mermaid overrides */
+.mermaid svg{max-width:100%}
 </style>
 </head>
 <body>
 
-<!-- Ambient glow -->
-<div class="glow glow-1"></div>
-<div class="glow glow-2"></div>
-<div class="glow glow-3"></div>
-
-<!-- Nav -->
-<nav>
-  <div class="container">
-    <div class="logo"><span class="gradient-text">HS</span> — Cloud Architect</div>
-    <ul>
-      <li><a href="#skills">Skills</a></li>
-      <li><a href="#projects">Projects</a></li>
-      <li><a href="#stats">Highlights</a></li>
-      <li><a href="#contact">Contact</a></li>
-    </ul>
-  </div>
-</nav>
-
 <!-- Hero -->
 <section class="hero">
-  <div class="hero-inner">
-    <div class="aws-badge"><span>☁️</span> AWS Cloud Architect</div>
-    <h1 class="gradient-text">AWS Cloud Architecture<br>Portfolio</h1>
-    <p class="name">Hunter Spence</p>
-    <p class="tagline">Infrastructure · Serverless · Security · Cost Optimization</p>
-    <div class="cta-group">
-      <a href="#projects" class="btn btn-primary">View Projects ↓</a>
-      <a href="https://github.com/HunterSpence/aws-cloud-portfolio" target="_blank" class="btn btn-outline">GitHub Repository →</a>
-    </div>
+  <div class="badge">☁️ AWS Certified</div>
+  <h1>AWS Cloud Architecture Portfolio</h1>
+  <p class="tagline">Production-grade infrastructure projects built with Terraform, Python, and modern DevOps practices — by Hunter Spence.</p>
+  <div class="hero-buttons">
+    <a href="https://github.com/HunterSpence/aws-cloud-portfolio" class="btn btn-primary">View on GitHub →</a>
+    <a href="mailto:hunter@vantaweb.dev" class="btn btn-outline">Get in Touch</a>
   </div>
-  <div class="scroll-hint"><span></span></div>
 </section>
 
 <!-- Skills -->
-<section id="skills">
-  <div class="container">
-    <p class="section-label">Core Expertise</p>
-    <h2 class="section-title">Skills & Technologies</h2>
-    <p class="section-desc">Production-grade cloud infrastructure built with industry-leading tools and AWS services.</p>
-    <div class="skills-grid">
-      <div class="skill-card fade-in d1">
-        <div class="icon terraform">🏗️</div>
-        <h3>Terraform / IaC</h3>
-        <p>Multi-environment infrastructure as code with remote state, modules, and drift detection. Reproducible deployments at scale.</p>
-      </div>
-      <div class="skill-card fade-in d2">
-        <div class="icon python">🐍</div>
-        <h3>Python & Automation</h3>
-        <p>Lambda functions, Boto3 SDK, data pipelines, custom analysis engines, and CLI tooling for cloud operations.</p>
-      </div>
-      <div class="skill-card fade-in d3">
-        <div class="icon aws">⚡</div>
-        <h3>AWS Services</h3>
-        <p>EC2, Lambda, S3, RDS, CloudFront, WAF, GuardDuty, SecurityHub, Kinesis, Athena, Cost Explorer, and more.</p>
-      </div>
-      <div class="skill-card fade-in d4">
-        <div class="icon cicd">🔄</div>
-        <h3>GitHub Actions CI/CD</h3>
-        <p>Automated pipelines for terraform plan/apply, testing, security scanning, and multi-stage deployments.</p>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- Projects -->
-<section id="projects">
-  <div class="container">
-    <p class="section-label">Featured Work</p>
-    <h2 class="section-title">Production-Grade Projects</h2>
-    <p class="section-desc">Four complete AWS architectures — each with Terraform IaC, CI/CD pipelines, monitoring, and documentation.</p>
-    <div class="projects-grid">
-
-      <!-- CloudForge -->
-      <div class="project-card fade-in d1">
-        <div class="project-header">
-          <span class="emoji">🏗️</span>
-          <h3>CloudForge</h3>
-          <p>Multi-tier VPC infrastructure with containerized workloads on ECS Fargate, Aurora PostgreSQL, and CloudFront CDN. Full networking stack with public/private subnets and NAT gateways.</p>
-        </div>
-        <div class="tech-tags">
-          <span class="tech-tag">Terraform</span>
-          <span class="tech-tag">ECS Fargate</span>
-          <span class="tech-tag">Aurora</span>
-          <span class="tech-tag">CloudFront</span>
-          <span class="tech-tag">ALB</span>
-          <span class="tech-tag">VPC</span>
-        </div>
-        <div class="diagram-container">
-          <pre class="mermaid">
-graph LR
-  A[VPC] --> B[ALB]
-  B --> C[ECS Fargate]
-  C --> D[Aurora PostgreSQL]
-  A --> E[CloudFront CDN]
-          </pre>
-        </div>
-        <div class="project-footer">
-          <a href="https://github.com/HunterSpence/aws-cloud-portfolio/tree/main/cloudforge" target="_blank" class="btn btn-outline">View Project →</a>
-        </div>
-      </div>
-
-      <!-- EventStream -->
-      <div class="project-card fade-in d2">
-        <div class="project-header">
-          <span class="emoji">⚡</span>
-          <h3>EventStream</h3>
-          <p>Serverless event-driven data pipeline processing real-time streams through Kinesis, with Lambda transformations, S3 data lake storage, and Athena analytics queries.</p>
-        </div>
-        <div class="tech-tags">
-          <span class="tech-tag">SAM</span>
-          <span class="tech-tag">Lambda</span>
-          <span class="tech-tag">Kinesis</span>
-          <span class="tech-tag">API Gateway</span>
-          <span class="tech-tag">S3</span>
-          <span class="tech-tag">Athena</span>
-        </div>
-        <div class="diagram-container">
-          <pre class="mermaid">
-graph LR
-  A[API Gateway] --> B[Lambda]
-  B --> C[Kinesis]
-  C --> D[S3 Data Lake]
-  D --> E[Athena Analytics]
-          </pre>
-        </div>
-        <div class="project-footer">
-          <a href="https://github.com/HunterSpence/aws-cloud-portfolio/tree/main/eventstream" target="_blank" class="btn btn-outline">View Project →</a>
-        </div>
-      </div>
-
-      <!-- SentinelGuard -->
-      <div class="project-card fade-in d3">
-        <div class="project-header">
-          <span class="emoji">🛡️</span>
-          <h3>SentinelGuard</h3>
-          <p>Automated security compliance framework with AWS Config rules, GuardDuty threat detection, SecurityHub aggregation, and Lambda-based auto-remediation workflows.</p>
-        </div>
-        <div class="tech-tags">
-          <span class="tech-tag">Terraform</span>
-          <span class="tech-tag">GuardDuty</span>
-          <span class="tech-tag">SecurityHub</span>
-          <span class="tech-tag">Config</span>
-          <span class="tech-tag">Lambda</span>
-          <span class="tech-tag">SNS</span>
-        </div>
-        <div class="diagram-container">
-          <pre class="mermaid">
-graph LR
-  A[AWS Config] --> B[GuardDuty]
-  B --> C[SecurityHub]
-  C --> D[Lambda Remediation]
-  D --> E[SNS Alerts]
-          </pre>
-        </div>
-        <div class="project-footer">
-          <a href="https://github.com/HunterSpence/aws-cloud-portfolio/tree/main/sentinelguard" target="_blank" class="btn btn-outline">View Project →</a>
-        </div>
-      </div>
-
-      <!-- CostPilot -->
-      <div class="project-card fade-in d4">
-        <div class="project-header">
-          <span class="emoji">📊</span>
-          <h3>CostPilot</h3>
-          <p>Intelligent cost optimization platform that analyzes AWS spending patterns, identifies savings opportunities, and generates actionable reports with rightsizing recommendations.</p>
-        </div>
-        <div class="tech-tags">
-          <span class="tech-tag">Python</span>
-          <span class="tech-tag">Boto3</span>
-          <span class="tech-tag">Cost Explorer</span>
-          <span class="tech-tag">Lambda</span>
-          <span class="tech-tag">S3</span>
-          <span class="tech-tag">SES</span>
-        </div>
-        <div class="diagram-container">
-          <pre class="mermaid">
-graph LR
-  A[Cost Explorer API] --> B[Analyzer Engine]
-  B --> C[S3 Reports]
-  C --> D[SES Email Delivery]
-          </pre>
-        </div>
-        <div class="project-footer">
-          <a href="https://github.com/HunterSpence/aws-cloud-portfolio/tree/main/costpilot" target="_blank" class="btn btn-outline">View Project →</a>
-        </div>
-      </div>
-
-    </div>
+<section class="section">
+  <h2 class="section-title">Skills & Technologies</h2>
+  <p class="section-sub">Core competencies across the cloud engineering stack</p>
+  <div class="skills-grid">
+    <span class="skill-tag">Terraform</span>
+    <span class="skill-tag">Python</span>
+    <span class="skill-tag">AWS Lambda</span>
+    <span class="skill-tag">API Gateway</span>
+    <span class="skill-tag">DynamoDB</span>
+    <span class="skill-tag">S3</span>
+    <span class="skill-tag">CloudFront</span>
+    <span class="skill-tag">IAM</span>
+    <span class="skill-tag">Route 53</span>
+    <span class="skill-tag">EventBridge</span>
+    <span class="skill-tag">SNS / SQS</span>
+    <span class="skill-tag">CloudWatch</span>
+    <span class="skill-tag">GitHub Actions</span>
+    <span class="skill-tag">CI/CD</span>
+    <span class="skill-tag">Docker</span>
+    <span class="skill-tag">Serverless</span>
   </div>
 </section>
 
 <!-- Stats -->
-<section id="stats" class="stats-section">
-  <div class="container">
-    <p class="section-label" style="text-align:center">Architecture Highlights</p>
-    <h2 class="section-title" style="text-align:center;margin-bottom:48px">Portfolio at a Glance</h2>
-    <div class="stats-grid">
-      <div class="stat-item fade-in d1">
-        <div class="number gradient-text">60+</div>
-        <div class="label">Infrastructure Files</div>
-      </div>
-      <div class="stat-item fade-in d2">
-        <div class="number gradient-text">4</div>
-        <div class="label">Production-Grade Projects</div>
-      </div>
-      <div class="stat-item fade-in d3">
-        <div class="number gradient-text">15+</div>
-        <div class="label">AWS Services</div>
-      </div>
-      <div class="stat-item fade-in d4">
-        <div class="number gradient-text">100%</div>
-        <div class="label">Infrastructure as Code</div>
-      </div>
+<div class="stats">
+  <div class="stat"><div class="stat-num">60+</div><div class="stat-label">Files</div></div>
+  <div class="stat"><div class="stat-num">4</div><div class="stat-label">Projects</div></div>
+  <div class="stat"><div class="stat-num">15+</div><div class="stat-label">AWS Services</div></div>
+</div>
+
+<!-- Projects -->
+<section class="section">
+  <h2 class="section-title">Projects</h2>
+  <p class="section-sub">Real-world cloud architecture implementations</p>
+  <div class="projects-grid">
+
+    <div class="card">
+      <div class="card-icon">🔥</div>
+      <h3>CloudForge</h3>
+      <p>Multi-environment Terraform infrastructure with reusable modules, remote state, and CI/CD pipelines.</p>
+      <div class="mermaid">graph LR; A[GitHub Push] --> B[Terraform Plan]; B --> C{Approve?}; C -->|Yes| D[Apply to AWS]; C -->|No| E[Reject]</div>
+      <div class="tags"><span class="tag">Terraform</span><span class="tag">S3</span><span class="tag">DynamoDB</span><span class="tag">GitHub Actions</span></div>
+      <a href="https://github.com/HunterSpence/aws-cloud-portfolio/tree/main/cloudforge" class="btn btn-outline">View Project →</a>
     </div>
+
+    <div class="card">
+      <div class="card-icon">⚡</div>
+      <h3>LambdaFlow</h3>
+      <p>Serverless API with Lambda functions, API Gateway, DynamoDB, and automated deployments.</p>
+      <div class="mermaid">graph LR; A[Client] --> B[API Gateway]; B --> C[Lambda]; C --> D[DynamoDB]; C --> E[S3]</div>
+      <div class="tags"><span class="tag">Lambda</span><span class="tag">API Gateway</span><span class="tag">DynamoDB</span><span class="tag">Python</span></div>
+      <a href="https://github.com/HunterSpence/aws-cloud-portfolio/tree/main/lambdaflow" class="btn btn-outline">View Project →</a>
+    </div>
+
+    <div class="card">
+      <div class="card-icon">🛡️</div>
+      <h3>SentinelOps</h3>
+      <p>Cloud monitoring and alerting system with CloudWatch dashboards, SNS notifications, and auto-remediation.</p>
+      <div class="mermaid">graph LR; A[CloudWatch] --> B[Alarm]; B --> C[SNS]; C --> D[Lambda Fix]; C --> E[Email Alert]</div>
+      <div class="tags"><span class="tag">CloudWatch</span><span class="tag">SNS</span><span class="tag">Lambda</span><span class="tag">EventBridge</span></div>
+      <a href="https://github.com/HunterSpence/aws-cloud-portfolio/tree/main/sentinelops" class="btn btn-outline">View Project →</a>
+    </div>
+
+    <div class="card">
+      <div class="card-icon">🌐</div>
+      <h3>EdgeServe</h3>
+      <p>Static site hosting with S3, CloudFront CDN, Route 53 DNS, and ACM SSL — fully automated.</p>
+      <div class="mermaid">graph LR; A[Route 53] --> B[CloudFront]; B --> C[S3 Origin]; B --> D[ACM SSL]; B --> E[Edge Cache]</div>
+      <div class="tags"><span class="tag">S3</span><span class="tag">CloudFront</span><span class="tag">Route 53</span><span class="tag">ACM</span></div>
+      <a href="https://github.com/HunterSpence/aws-cloud-portfolio/tree/main/edgeserve" class="btn btn-outline">View Project →</a>
+    </div>
+
   </div>
 </section>
 
 <!-- Contact -->
-<section id="contact">
-  <div class="container">
-    <div class="contact-inner">
-      <h2>Let's Build Something</h2>
-      <p>Open to cloud architecture roles, consulting, and collaboration opportunities.</p>
-      <div class="contact-links">
-        <a href="mailto:hunter@vantaweb.dev" class="contact-link">✉️ hunter@vantaweb.dev</a>
-        <a href="https://hunterspence.github.io/VantaWeb/" target="_blank" class="contact-link">🌐 VantaWeb Portfolio</a>
-        <a href="https://github.com/HunterSpence/aws-cloud-portfolio" target="_blank" class="contact-link">🐙 GitHub</a>
-      </div>
-    </div>
+<section class="contact">
+  <h2>Let's Connect</h2>
+  <p>Interested in working together or discussing cloud architecture?</p>
+  <div class="contact-links">
+    <a href="mailto:hunter@vantaweb.dev" class="btn btn-primary">✉️ hunter@vantaweb.dev</a>
+    <a href="https://vantaweb.dev" target="_blank" class="btn btn-outline">🌐 VantaWeb</a>
+    <a href="https://github.com/HunterSpence" target="_blank" class="btn btn-outline">GitHub</a>
   </div>
 </section>
 
 <!-- Footer -->
-<footer>
-  <div class="container">
-    <p>Built by <strong>Hunter Spence</strong> — 4 years Infrastructure Transformation at Accenture</p>
-  </div>
-</footer>
+<footer>Built by Hunter Spence · © 2026</footer>
 
-<!-- Mermaid.js -->
-<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
-<script>
-mermaid.initialize({
-  startOnLoad: true,
-  theme: 'dark',
-  themeVariables: {
-    primaryColor: '#6366f1',
-    primaryTextColor: '#e2e8f0',
-    primaryBorderColor: '#7c3aed',
-    lineColor: '#06b6d4',
-    secondaryColor: '#1a1a2e',
-    tertiaryColor: '#12121a',
-    background: '#1a1a2e',
-    mainBkg: '#1a1a2e',
-    nodeBorder: '#6366f1',
-    clusterBkg: '#12121a',
-    fontSize: '14px'
-  },
-  flowchart: { curve: 'basis', padding: 16 }
-});
-
-// Intersection Observer for fade-in animations
-const observer = new IntersectionObserver((entries) => {
-  entries.forEach(e => { if (e.isIntersecting) { e.target.style.animationPlayState = 'running'; e.target.classList.add('visible'); }});
-}, { threshold: 0.1 });
-document.querySelectorAll('.fade-in').forEach(el => { el.style.animationPlayState = 'paused'; observer.observe(el); });
-</script>
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+<script>mermaid.initialize({startOnLoad:true,theme:'dark',themeVariables:{primaryColor:'#6366f1',primaryTextColor:'#e2e8f0',primaryBorderColor:'#7c3aed',lineColor:'#06b6d4',secondaryColor:'#1a1a2e',tertiaryColor:'#12121a'}});</script>
 </body>
 </html>
