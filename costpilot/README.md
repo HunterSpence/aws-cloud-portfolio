@@ -1,12 +1,12 @@
 # CostPilot — Cloud Cost Optimization Engine
 
-![Python](https://img.shields.io/badge/Python-3.11+-3776AB?logo=python&logoColor=white)
+![Python](https://img.shields.io/badge/Python-3.11+-3776AB?logo=python)
 ![AWS](https://img.shields.io/badge/AWS-Cost_Optimization-FF9900?logo=amazon-aws)
 ![CLI](https://img.shields.io/badge/CLI-Click-green)
-![License](https://img.shields.io/badge/License-MIT-green)
+![License](https://img.shields.io/badge/License-MIT-blue)
 ![Status](https://img.shields.io/badge/Status-Production_Ready-brightgreen)
 
-CostPilot is an automated AWS cost optimization CLI that analyzes your cloud spend, recommends EC2/RDS rightsizing based on CloudWatch metrics, detects unused resources (unattached EBS, idle ALBs, orphaned snapshots, unassociated EIPs), evaluates RI/Savings Plans coverage, and generates dark-themed HTML and Markdown reports — with Slack and email alerting built in.
+**CostPilot is an automated AWS cost optimization CLI that analyzes cloud spend, identifies rightsizing opportunities, detects unused resources, evaluates RI/Savings Plans coverage, and generates actionable HTML and Markdown reports — helping engineering teams cut infrastructure costs by 20–40% without sacrificing performance.**
 
 ---
 
@@ -14,7 +14,7 @@ CostPilot is an automated AWS cost optimization CLI that analyzes your cloud spe
 
 ```mermaid
 graph LR
-    subgraph AWS["☁️ AWS APIs"]
+    subgraph AWS APIs
         CE[Cost Explorer]
         CW[CloudWatch]
         EC2[EC2 / EBS / EIP]
@@ -22,62 +22,59 @@ graph LR
         S3[S3]
     end
 
-    subgraph Engine["⚙️ CostPilot Engine"]
+    subgraph CostPilot Engine
         A[Analyzer]
         RS[RightSizer]
         UD[UnusedDetector]
         RA[ReservationAnalyzer]
     end
 
-    subgraph Output["📊 Output"]
+    CE --> A
+    CW --> RS
+    EC2 --> UD
+    ELB --> UD
+    S3 --> UD
+    CE --> RA
+
+    subgraph Output
         R[Reporter]
         MD[Markdown Report]
         HTML[HTML Report]
         AM[AlertManager]
-        Slack[Slack]
-        Email[Email / SES]
+        SL[Slack]
+        EM[Email / SES]
     end
-
-    CE --> A
-    CW --> A
-    CW --> RS
-    EC2 --> RS
-    EC2 --> UD
-    ELB --> UD
-    S3 --> UD
 
     A --> R
     RS --> R
     UD --> R
     RA --> R
-
     R --> MD
     R --> HTML
-
     A --> AM
-    AM --> Slack
-    AM --> Email
+    AM --> SL
+    AM --> EM
 ```
 
 ## Features
 
 | Category | What It Does | Typical Savings |
 |----------|-------------|-----------------|
-| **Cost Analysis** | 30/60/90-day spend breakdown by service, account, region with trend detection and spike alerts | — |
-| **Rightsizing** | EC2 & RDS recommendations based on CPU/memory/network utilization | ~$400–2,000/mo |
-| **Unused Resources** | Unattached EBS, idle ALBs, unassociated EIPs, empty S3 buckets, stopped EC2 >7d, orphaned snapshots | ~$100–500/mo |
-| **RI & Savings Plans** | Utilization tracking, coverage analysis, purchase recommendations with break-even math | ~$2,000–10,000/yr |
-| **Cost Projections** | Linear regression forecasting for next-month spend | — |
-| **Reporting** | Dark-themed HTML + Markdown reports via Jinja2 templates | — |
-| **Alerting** | AWS Budgets integration, Slack webhooks, SES email alerts | — |
+| **Cost Analysis** | 30/60/90-day spend breakdown by service, account, and region with trend detection and spike alerts | Visibility into 100% of spend |
+| **Rightsizing** | EC2 & RDS recommendations based on CloudWatch CPU, memory, and network utilization | 15–30% compute savings |
+| **Unused Resources** | Detects unattached EBS, idle ALBs, unassociated EIPs, empty S3 buckets, stopped EC2 >7 days, orphaned snapshots | $200–2,000+/mo recovered |
+| **RI & Savings Plans** | Utilization tracking, coverage analysis, purchase recommendations with break-even calculations | 20–40% on committed workloads |
+| **Reporting** | Dark-themed HTML and Markdown reports via Jinja2 templates | — |
+| **Alerting** | AWS Budgets integration, Slack webhooks, and SES email alerts | Prevents cost overruns |
+| **Forecasting** | Linear regression projections for next-month spend | Early warning on budget drift |
 
 ## CLI Commands
 
 | Command | Description | Example |
 |---------|-------------|---------|
-| `costpilot analyze` | Full cost analysis for a given period | `costpilot analyze --days 30` |
+| `costpilot analyze` | Run full cost analysis for a given period | `costpilot analyze --days 30` |
 | `costpilot report` | Generate HTML or Markdown report | `costpilot report --format html -o report.html` |
-| `costpilot unused` | Detect unused/idle resources | `costpilot unused --all` |
+| `costpilot unused` | Detect unused/idle AWS resources | `costpilot unused --all` |
 | `costpilot watch` | Continuous monitoring with alerting | `costpilot watch --interval 3600 --alert-threshold 15` |
 | `costpilot analyze --include-reservations` | Include RI/Savings Plans analysis | `costpilot analyze --days 90 --include-reservations` |
 
@@ -89,18 +86,16 @@ cd aws-cloud-portfolio/costpilot
 pip install -e .
 ```
 
-**Requirements:** Python 3.11+, valid AWS credentials with appropriate IAM permissions.
-
-## Configuration
+### Configuration
 
 ```bash
-# AWS credentials
+# Set AWS credentials
 export AWS_PROFILE=production
 
 # Optional: Slack alerts
 export COSTPILOT_SLACK_WEBHOOK=https://hooks.slack.com/services/...
 
-# Optional: SES email alerts
+# Optional: SES alerts
 export COSTPILOT_SES_SENDER=alerts@example.com
 export COSTPILOT_SES_RECIPIENT=team@example.com
 ```
@@ -118,11 +113,25 @@ ses_recipients:
 
 ## Usage Examples
 
-### Full Analysis
-
 ```bash
-$ costpilot analyze --days 30
+# Full cost analysis (last 30 days)
+costpilot analyze --days 30
 
+# Generate HTML + Markdown reports
+costpilot report --format html --output report.html
+costpilot report --format markdown --output report.md
+
+# Detect unused resources
+costpilot unused --all
+costpilot unused --ebs --eip --ec2
+
+# Watch mode (continuous monitoring)
+costpilot watch --interval 3600 --alert-threshold 15
+```
+
+### Sample Output
+
+```
 CostPilot Cost Analysis — 2026-02-01 to 2026-02-20
 ====================================================
 
@@ -142,56 +151,21 @@ Unused Resources Found:         8 resources    ~$420/mo waste
 RI Coverage Gap:               23%             ~$2,100/yr opportunity
 ```
 
-### Unused Resource Detection
-
-```bash
-$ costpilot unused --all
-
-Found 8 unused resources — $148.45/mo waste
-
-  EBS Volumes (3)         $48.00/mo
-  Elastic IPs (2)          $7.20/mo
-  Load Balancers (1)      $16.20/mo
-  Stopped Instances (1)   $40.00/mo
-  Old Snapshots (2)       $37.05/mo
-```
-
-### Generate Reports
-
-```bash
-$ costpilot report --format html --output report.html
-✓ HTML report saved to report.html
-
-$ costpilot report --format markdown --output report.md
-✓ Markdown report saved to report.md
-```
-
-## Sample Report
-
-See the full generated report: **[sample-output/sample-report.md](sample-output/sample-report.md)**
-
-Key highlights from a sample run:
-
-| Metric | Value |
-|--------|-------|
-| Total Spend (30 days) | $4,827.53 |
-| Rightsizing Savings | $434.35/mo |
-| Unused Resource Waste | $148.45/mo |
-| **Total Potential Savings** | **$1,247.80/mo** |
+See [`sample-output/sample-report.md`](sample-output/sample-report.md) for a full report.
 
 ## Modules
 
 | Module | File | Description |
 |--------|------|-------------|
-| **CLI** | `cli.py` | Click-based command interface with subcommands |
-| **Analyzer** | `analyzer.py` | Cost Explorer queries, trend detection, spike alerts |
-| **RightSizer** | `rightsizer.py` | CloudWatch-driven EC2/RDS rightsizing recommendations |
-| **UnusedDetector** | `unused.py` | Scans for idle EBS, EIPs, ALBs, stopped EC2, orphaned snapshots |
-| **ReservationAnalyzer** | `reservations.py` | RI/Savings Plans utilization, coverage, and purchase recommendations |
+| **CLI** | `cli.py` | Click-based command interface with subcommands and options |
+| **Analyzer** | `analyzer.py` | Cost Explorer queries, trend detection, spike alerting, projections |
+| **RightSizer** | `rightsizer.py` | CloudWatch-driven EC2/RDS instance rightsizing recommendations |
+| **UnusedDetector** | `unused.py` | Scans for unattached EBS, idle ALBs, unassociated EIPs, orphaned snapshots |
+| **ReservationAnalyzer** | `reservations.py` | RI/Savings Plans utilization, coverage gaps, purchase recommendations |
 | **Reporter** | `reporter.py` | Jinja2-based HTML and Markdown report generation |
-| **AlertManager** | `alerts.py` | AWS Budgets, Slack webhook, and SES email alerting |
-| **Models** | `models.py` | Pydantic data models for analysis results |
-| **Config** | `config.py` | YAML/env configuration loader |
+| **AlertManager** | `alerts.py` | Slack webhook, SES email, and AWS Budgets alert integration |
+| **Models** | `models.py` | Pydantic data models for cost records, recommendations, alerts |
+| **Config** | `config.py` | YAML/env configuration loading and validation |
 
 ## AWS Permissions
 
@@ -219,8 +193,7 @@ Minimum IAM policy required:
         "elasticloadbalancing:DescribeTargetHealth",
         "s3:ListAllMyBuckets",
         "s3:GetBucketLocation",
-        "rds:DescribeDBInstances",
-        "budgets:DescribeBudgets",
+        "budgets:ViewBudget",
         "ses:SendEmail"
       ],
       "Resource": "*"
@@ -238,10 +211,8 @@ pytest tests/ -v
 # Run with coverage
 pytest tests/ --cov=costpilot --cov-report=term-missing
 
-# Run specific module tests
+# Run specific test module
 pytest tests/test_analyzer.py -v
-pytest tests/test_rightsizer.py -v
-pytest tests/test_unused.py -v
 ```
 
 ## License
